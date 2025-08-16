@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EL Launcher Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            justify-content: center;
+            align-items: center;
+        }
+        input[type="number"] {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            width: 150px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #28a745;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .processes-section {
+            margin-top: 30px;
+        }
+        .process-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .process-table th,
+        .process-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .process-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .process-row {
+            cursor: pointer;
+        }
+        .process-row:hover {
+            background: #f8f9fa;
+        }
+        .status-connected {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .status-running {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+            text-align: center;
+        }
+        .modal-buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>EL Launcher Controller</h1>
+        </div>
+
+        <div class="input-section" id="inputSection">
+            <label for="iterations">Number of Iterations:</label>
+            <input type="number" id="iterations" min="1" max="100" value="1">
+            <button onclick="startLaunch()" id="launchBtn">Start Launch</button>
+        </div>
+
+        <div class="loading" id="loadingSection">
+            <h3>Launching New Processes...</h3>
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <p id="progressText">0 / 0 completed (new launch)</p>
+            <p id="totalProcessText">Total active processes: 0</p>
+        </div>
+
+        <div class="processes-section" id="processesSection">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3>Active Processes</h3>
+                <button onclick="showStopAllModal()" id="stopAllBtn" class="btn-danger" style="display: none;">Stop All Processes</button>
+            </div>
+            <table class="process-table">
+                <thead>
+                    <tr>
+                        <th>Iteration</th>
+                        <th>PID</th>
+                        <th>Status</th>
+                        <th>Start Time</th>
+                    </tr>
+                </thead>
+                <tbody id="processTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <h3>Confirm Termination</h3>
+            <p>Are you sure you want to stop this process?</p>
+            <div class="modal-buttons">
+                <button class="btn-danger" onclick="confirmStop()">Yes, Stop</button>
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stop All Confirmation Modal -->
+    <div id="confirmStopAllModal" class="modal">
+        <div class="modal-content">
+            <h3>Confirm Stop All</h3>
+            <p>Are you sure you want to stop ALL active processes?</p>
+            <div class="modal-buttons">
+                <button class="btn-danger" onclick="confirmStopAll()">Yes, Stop All</button>
+                <button class="btn-secondary" onclick="closeStopAllModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:3000';
+        let currentPidToStop = null;
+        let pollInterval = null;
+
+        async function startLaunch() {
+            const iterations = document.getElementById('iterations').value;
+            if (!iterations || iterations < 1) {
+                alert('Please enter a valid number of iterations');
+                return;
+            }
+
+            try {
+                console.log('Sending launch request to:', `${BASE_URL}/api/launch`);
+                const response = await fetch(`${BASE_URL}/api/launch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ iterations: parseInt(iterations) })
+                });
+
+                console.log('Response status:', response.status);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Launch started:', result);
+                    showLoading(parseInt(iterations), result.startIteration, result.totalProcesses);
+                    startPolling();
+                } else {
+                    const error = await response.json();
+                    console.error('Launch error:', error);
+                    alert(`Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                alert(`Failed to start launch: ${error.message}`);
+            }
+        }
+
+        function showLoading(newIterations, startIteration, totalProcesses) {
+            document.getElementById('inputSection').style.display = 'none';
+            document.getElementById('loadingSection').style.display = 'block';
+            document.getElementById('progressText').textContent = 
+                `0 / ${newIterations} completed (iterations ${startIteration}-${startIteration + newIterations - 1})`;
+            document.getElementById('totalProcessText').textContent = 
+                `Total active processes: ${totalProcesses}`;
+        }
+
+        function hideLoading() {
+            document.getElementById('inputSection').style.display = 'flex';
+            document.getElementById('loadingSection').style.display = 'none';
+        }
+
+        function startPolling() {
+            pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${BASE_URL}/api/processes`);
+                    const data = await response.json();
+                    
+                    updateProgress(data.launchStatus, data.totalProcesses);
+                    updateProcessTable(data.processes);
+                    
+                    if (!data.isLaunching && data.launchStatus.running === false) {
+                        clearInterval(pollInterval);
+                        hideLoading();
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 2000);
+        }
+
+        function updateProgress(status, totalProcesses) {
+            if (status.total > 0) {
+                const percentage = (status.completed / status.total) * 100;
+                document.getElementById('progressBar').style.width = percentage + '%';
+                
+                const endIteration = status.startIteration + status.total - 1;
+                document.getElementById('progressText').textContent = 
+                    `${status.completed} / ${status.total} completed (iterations ${status.startIteration}-${endIteration})`;
+                document.getElementById('totalProcessText').textContent = 
+                    `Total active processes: ${totalProcesses}`;
+            }
+        }
+
+        function updateProcessTable(processes) {
+            const tbody = document.getElementById('processTableBody');
+            const stopAllBtn = document.getElementById('stopAllBtn');
+            
+            tbody.innerHTML = '';
+            
+            // Show/hide stop all button based on active processes
+            if (processes.length > 0) {
+                stopAllBtn.style.display = 'block';
+            } else {
+                stopAllBtn.style.display = 'none';
+            }
+            
+            processes.forEach(process => {
+                const row = document.createElement('tr');
+                row.className = 'process-row';
+                row.onclick = () => showStopModal(process.pid);
+                
+                const statusClass = process.connected ? 'status-connected' : 'status-running';
+                const statusText = process.connected ? 'Connected' : 'Running';
+                const startTime = new Date(process.startTime).toLocaleString();
+                
+                row.innerHTML = `
+                    <td>${process.iteration}</td>
+                    <td>${process.pid}</td>
+                    <td class="${statusClass}">${statusText}</td>
+                    <td>${startTime}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function showStopModal(pid) {
+            currentPidToStop = pid;
+            document.getElementById('confirmModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('confirmModal').style.display = 'none';
+            currentPidToStop = null;
+        }
+
+        function showStopAllModal() {
+            document.getElementById('confirmStopAllModal').style.display = 'block';
+        }
+
+        function closeStopAllModal() {
+            document.getElementById('confirmStopAllModal').style.display = 'none';
+        }
+
+        async function confirmStop() {
+            if (!currentPidToStop) return;
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/process/${currentPidToStop}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    closeModal();
+                    // Refresh process list
+                    const processResponse = await fetch(`${BASE_URL}/api/processes`);
+                    const data = await processResponse.json();
+                    updateProcessTable(data.processes);
+                } else {
+                    const error = await response.json();
+                    alert(error.error);
+                }
+            } catch (error) {
+                alert('Failed to stop process');
+            }
+        }
+
+        async function confirmStopAll() {
+            try {
+                const response = await fetch(`${BASE_URL}/api/processes/all`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    closeStopAllModal();
+                    // Clear polling if running
+                    if (pollInterval) {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                    }
+                    // Reset UI
+                    hideLoading();
+                    updateProcessTable([]);
+                    alert(`All processes stopped (${result.terminatedCount} processes terminated)`);
+                } else {
+                    const error = await response.json();
+                    alert(error.error);
+                }
+            } catch (error) {
+                alert('Failed to stop all processes');
+            }
+        }
+
+        // Load initial data
+        window.onload = async () => {
+            try {
+                const response = await fetch(`${BASE_URL}/api/processes`);
+                const data = await response.json();
+                updateProcessTable(data.processes);
+                
+                if (data.isLaunching) {
+                    const startIteration = data.launchStatus.startIteration;
+                    const endIteration = startIteration + data.launchStatus.total - 1;
+                    showLoading(data.launchStatus.total, startIteration, data.totalProcesses);
+                    startPolling();
+                }
+            } catch (error) {
+                console.error('Failed to load initial data');
+            }
+        };
+    </script>
+</body>
+</html>

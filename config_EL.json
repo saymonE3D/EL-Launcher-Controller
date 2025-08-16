@@ -1,0 +1,13 @@
+{
+	"elid": "aninda",
+	"securedAPI": true,
+	"MMLineker_ipaddresses": "connector_staging_ns.eaglepixelstreaming.com:4567",
+	"1preAllocateApp_configurationName": "0",
+	"1preAllocateApp_name": "3DViewer",
+	"1preAllocateApp_owner": "demo",
+	"1preAllocateApps": true,
+	"apiKey": "U2FsdGVkX1+6IFxYPQIgCr8+KqWJF5kZ7E+qXqtIVy0OwD7HXb376yE+rEpYHhzfSEd4YRpx5GN/QxsGXXy821be9AdK3iGvJhXHBN7fYwucF1dzVaSBfIkziFzZqCH9J8Z9XT8/y7sf/hSTHQ5jr4MOv9ByPd8cxM4zZrk8sKY=",
+	"requiredFreeSpace": 5,
+	"sharedDownloadDirectory": "z:\\0.apps",
+	"cleanUp": "AllOldBuilds"
+}

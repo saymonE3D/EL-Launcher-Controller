@@ -1,0 +1,18 @@
+{
+  "watch": ["server.js", "ELLauncher.js", "AppExeUtilities.js"],
+  "ignore": [
+    "public/*",
+    "*.json", 
+    "README.md", 
+    "node_modules/*",
+    "*.log",
+    "*.txt"
+  ],
+  "ext": "js",
+  "delay": 3000,
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "verbose": true,
+  "restartable": "rs"
+}
