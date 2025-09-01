@@ -51,7 +51,7 @@ class ProcessManager {
         }
         
         try {
-            const exePath = 'C:\\Users\\HP\\Desktop\\E3DSOffice\\NodeApp\\EL.exe';
+            const exePath = 'E:\\Saymon\\elLauncherController\\EL.exe';
             const callback = this.createCallback(iteration, totalIteration, startIteration);
             const elProcess = launchExeWithArgs(exePath, [], callback);
             

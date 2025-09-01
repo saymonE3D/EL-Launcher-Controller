@@ -1,7 +1,6 @@
 const express = require('express');
 const path = require('path');
 const ProcessManager = require('./processManages');
-
 const app = express();
 const PORT = 3000;
 const processManager = new ProcessManager();
@@ -20,6 +19,32 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.static('public'));
+
+// Health Check API
+app.get('/api/health', (req, res) => {
+    const healthCheck = {
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development',
+        version: process.version,
+        memory: {
+            used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100 + ' MB',
+            total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024 * 100) / 100 + ' MB'
+        },
+        processManager: {
+            activeProcesses: processManager.getProcesses().length,
+            status: processManager.getStatus()
+        }
+    };
+    
+    res.status(200).json(healthCheck);
+});
+
+// Simple health check endpoint (just returns 200 OK)
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
 
 // API Routes
 app.post('/api/launch', async (req, res) => {
@@ -64,6 +89,7 @@ app.get('/api/status', (req, res) => {
     res.json(processManager.getStatus());
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
+    console.log(`Health check available at: http://localhost:${PORT}/api/health`);
 });
